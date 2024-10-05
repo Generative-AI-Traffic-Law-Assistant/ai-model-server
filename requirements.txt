@@ -4,4 +4,7 @@ openai
 langchain
 faiss-cpu
 python-dotenv
-PyMuPDF
+fpdf2
+torch
+transformers==4.44.2
+Pillow
