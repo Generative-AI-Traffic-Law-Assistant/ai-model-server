@@ -9,9 +9,6 @@ from rag import ask_question
 from faiss_indexer import create_faiss_index
 from model import generate_description_for_image, classifier
 
-from typing import Optional
-from typing import Union
-
 from fpdf import FPDF
 
 import io
@@ -48,8 +45,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 공통 모델 (Perpetrator와 Victim의 공통 필드)
-class IncidentParticipant(BaseModel):
+# 가해자 모델
+class Perpetrator(BaseModel):
     accidentDate: str  # 사고 발생 날짜
     accidentLocation: str  # 사고 발생 위치
     legalPlan: str  # 법적 대응 계획
@@ -59,26 +56,46 @@ class IncidentParticipant(BaseModel):
     injuryDescription: str  # 피해자 부상 내용
     accidentDetails : str # 사고 세부 사항
     scooterInfo: str  # 전동 킥보드 정보
-
-# 가해자 모델
-class Perpetrator(IncidentParticipant):
     violationDetails: str  # 위반 내용
 
 # 피해자 모델
-class Victim(IncidentParticipant):
+class Victim(BaseModel):
+    accidentDate: str  # 사고 발생 날짜
+    accidentLocation: str  # 사고 발생 위치
+    legalPlan: str  # 법적 대응 계획
+    insuranceStatus: str  # 보험 가입 상태
+    policeReport: bool  # 경찰 신고 여부
+    settlementStatus: str  # 합의 내용
+    injuryDescription: str  # 피해자 부상 내용
+    accidentDetails : str # 사고 세부 사항
+    scooterInfo: str  # 전동 킥보드 정보
     vehicleInfo : str # 가해 차량 정보
     perpetratorContact : bool # 가해자 연락처 공유 여부
     hasWitness : bool # 목격자 여부
 
-# 가해자와 피해자를 처리할 수 있는 엔드포인트
-@app.post("/ask")
-async def ask_question_endpoint(participant: Union[Perpetrator, Victim]):
-    question = generate_question(participant)
+# victim enpoint
+@app.post("/ask/victim")
+async def ask_victim_endpoint(participant: Victim):
+    question = generate_victim_question(participant)
+    answer = ask_question(question)
+    return {"answer": answer}
+
+# victim enpoint
+@app.post("/ask/perpetrator")
+async def ask_perpetrator_endpoint(participant: Perpetrator):
+    question = generate_perpetrator_question(participant)
+    answer = ask_question(question)
+    return {"answer": answer}
+
+# 챗봇 엔드포인트
+@app.post("/chat")
+async def ask_question_endpoint(request: QuestionRequest):
+    question = request.question
     answer = ask_question(question)
     return {"answer": answer}
 
 # Perpetrator와 Victim에 따라 질문을 생성하는 함수
-def generate_question(participant: Union[Perpetrator, Victim]) -> str:
+def generate_perpetrator_question(participant: Perpetrator) -> str:
     # 공통 필드 처리
     question = (
         f"사고가 {participant.accidentDate}에 {participant.accidentLocation}에서 발생했습니다. "
@@ -91,19 +108,33 @@ def generate_question(participant: Union[Perpetrator, Victim]) -> str:
         f"합의 상태는 {participant.settlementStatus}입니다. "
     )
 
-    # Perpetrator인 경우 추가 정보
-    if isinstance(participant, Perpetrator):
-        question += (
+    question += (
             f"위반 내용은 {participant.violationDetails}입니다."
         )
 
-    # Victim인 경우 추가 정보
-    elif isinstance(participant, Victim):
-        question += (
+    question += " 이러한 경우에는 어떤 법적 처리를 해야 할까요?"
+
+    return question
+
+def generate_victim_question(participant: Victim) -> str:
+    # 공통 필드 처리
+    question = (
+        f"사고가 {participant.accidentDate}에 {participant.accidentLocation}에서 발생했습니다. "
+        f"법적 대응 계획은 {participant.legalPlan}입니다. "
+        f"피해자 부상 내용은 {participant.injuryDescription}이고, "
+        f"사고 세부 사항은 {participant.accidentDetails}입니다. "
+        f"전동 킥보드 정보는 {participant.scooterInfo}입니다. "
+        f"보험 상태는 {participant.insuranceStatus}이며, "
+        f"경찰 신고는 {'완료됨' if participant.policeReport else '신고하지 않음'}입니다. "
+        f"합의 상태는 {participant.settlementStatus}입니다. "
+    )
+
+    question += (
             f"가해 차량 정보는 {participant.vehicleInfo}이고, "
             f"가해자 연락처는 {'받음' if participant.perpetratorContact else '받지 않음'}이며, "
             f"목격자는 {'존재함' if participant.hasWitness else '존재하지 않음'}입니다."
         )
+        
 
     question += " 이러한 경우에는 어떤 법적 처리를 해야 할까요?"
 
