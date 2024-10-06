@@ -39,16 +39,15 @@ class PMCodeClassifier(nn.Module):
         return logits
 
 # 4. 이미지 전처리 함수
-def preprocess_image(image_url):
-    response = requests.get(image_url)
-    image = Image.open(BytesIO(response.content)).convert("RGB")
+def preprocess_image(image_file):
+    image = Image.open(BytesIO(image_file)).convert("RGB")
     inputs = feature_extractor(images=image, return_tensors="pt")
     return inputs['pixel_values']
 
 # 5. 새로운 이미지에 대한 pm_code 예측 및 설명 생성 함수
-def generate_description_for_image(image_path, classifier):
+def generate_description_for_image(image_file, classifier):
     # 이미지 전처리
-    image_input = preprocess_image(image_path)
+    image_input = preprocess_image(image_file)
 
     # pm_code 예측
     with torch.no_grad():
@@ -60,6 +59,29 @@ def generate_description_for_image(image_path, classifier):
     description = pm_code_descriptions[pm_code]
 
     return description
+
+# # 4. 이미지 전처리 함수
+# def preprocess_image(image_url):
+#     response = requests.get(image_url)
+#     image = Image.open(BytesIO(response.content)).convert("RGB")
+#     inputs = feature_extractor(images=image, return_tensors="pt")
+#     return inputs['pixel_values']
+
+# # 5. 새로운 이미지에 대한 pm_code 예측 및 설명 생성 함수
+# def generate_description_for_image(image_path, classifier):
+#     # 이미지 전처리
+#     image_input = preprocess_image(image_path)
+
+#     # pm_code 예측
+#     with torch.no_grad():
+#         logits = classifier(image_input)
+#         pm_code_pred = torch.argmax(logits, dim=-1).item()  # 예측된 pm_code
+
+#     # 예측된 pm_code에 해당하는 설명 선택
+#     pm_code = list(pm_code_descriptions.keys())[pm_code_pred]
+#     description = pm_code_descriptions[pm_code]
+
+#     return description
 
 # 6. 학습된 분류 모델 정의
 num_labels = len(pm_code_descriptions)
